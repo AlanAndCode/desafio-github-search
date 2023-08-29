@@ -1,79 +1,124 @@
 package br.com.igorbag.githubsearch.ui
 
+import RepositoryAdapter
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Button
 import android.widget.EditText
 import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.RecyclerView
 import br.com.igorbag.githubsearch.R
 import br.com.igorbag.githubsearch.data.GitHubService
+import br.com.igorbag.githubsearch.databinding.ActivityMainBinding
 import br.com.igorbag.githubsearch.domain.Repository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 
 class MainActivity : AppCompatActivity() {
 
-    lateinit var nomeUsuario: EditText
-    lateinit var btnConfirmar: Button
-    lateinit var listaRepositories: RecyclerView
-    lateinit var githubApi: GitHubService
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var gitHubService: GitHubService
+    private lateinit var repositoryAdapter: RepositoryAdapter
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        setupView()
-        showUserName()
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         setupRetrofit()
+        setupListeners()
+        showUserName()
+
+
+        repositoryAdapter = RepositoryAdapter(emptyList()) // Inicialize com uma lista vazia, pois você pode definir os dados mais tarde
+        binding.rvListaRepositories.adapter = repositoryAdapter
+    }
+
+    override fun onStart() {
+        super.onStart()
         getAllReposByUserName()
     }
-
-    // Metodo responsavel por realizar o setup da view e recuperar os Ids do layout
-    fun setupView() {
-        //@TODO 1 - Recuperar os Id's da tela para a Activity com o findViewById
-    }
-
-    //metodo responsavel por configurar os listeners click da tela
+    // Método responsável por configurar os listeners click da tela
     private fun setupListeners() {
-        //@TODO 2 - colocar a acao de click do botao confirmar
+        binding.btnConfirmar.setOnClickListener { getAllReposByUserName() }
     }
 
-
-    // salvar o usuario preenchido no EditText utilizando uma SharedPreferences
-    private fun saveUserLocal() {
-        //@TODO 3 - Persistir o usuario preenchido na editText com a SharedPref no listener do botao salvar
+    // Salvar o usuário preenchido no EditText utilizando SharedPreferences
+    private fun saveUserLocal(user: EditText) {
+        val username = user.text.toString()
+        val sharedPref = getPreferences(Context.MODE_PRIVATE)
+        with(sharedPref.edit()) {
+            putString(getString(R.string.save), username)
+            apply()
+        }
     }
 
+    // Exibir o nome do usuário salvo, se existir, no EditText
     private fun showUserName() {
-        //@TODO 4- depois de persistir o usuario exibir sempre as informacoes no EditText  se a sharedpref possuir algum valor, exibir no proprio editText o valor salvo
+        val sharedPref = getPreferences(Context.MODE_PRIVATE)
+        val savedUsername = sharedPref.getString(getString(R.string.save), "")
+        binding.etNomeUsuario.setText(savedUsername)
     }
 
-    //Metodo responsavel por fazer a configuracao base do Retrofit
-    fun setupRetrofit() {
-        /*
-           @TODO 5 -  realizar a Configuracao base do retrofit
-           Documentacao oficial do retrofit - https://square.github.io/retrofit/
-           URL_BASE da API do  GitHub= https://api.github.com/
-           lembre-se de utilizar o GsonConverterFactory mostrado no curso
-        */
-    }
+    // Método responsável por fazer a configuração base do Retrofit
 
-    //Metodo responsavel por buscar todos os repositorios do usuario fornecido
-    fun getAllReposByUserName() {
-        // TODO 6 - realizar a implementacao do callback do retrofit e chamar o metodo setupAdapter se retornar os dados com sucesso
-    }
+    private fun setupRetrofit() {
+        val retrofit = Retrofit.Builder()
+            .baseUrl("https://api.github.com/") // URL base correta da API do GitHub
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
 
-    // Metodo responsavel por realizar a configuracao do adapter
-    fun setupAdapter(list: List<Repository>) {
-        /*
-            @TODO 7 - Implementar a configuracao do Adapter , construir o adapter e instancia-lo
-            passando a listagem dos repositorios
-         */
+        gitHubService = retrofit.create(GitHubService::class.java)
     }
 
 
-    // Metodo responsavel por compartilhar o link do repositorio selecionado
-    // @Todo 11 - Colocar esse metodo no click do share item do adapter
-    fun shareRepositoryLink(urlRepository: String) {
+    private fun getAllReposByUserName() {
+        val username = binding.etNomeUsuario.text.toString()
+        if (username.isNotEmpty()) {
+            try {
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val repos = gitHubService.getAllRepositoriesByUser(username)
+                        runOnUiThread {
+                            setupAdapter(repos)
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+
+    // Método responsável por realizar a configuração do adapter
+    private fun setupAdapter(list: List<Repository>) {
+        // Inicialize o adaptador com a lista de repositórios
+        repositoryAdapter = RepositoryAdapter(list)
+
+        // Configurar o clique em um item do repositório
+        repositoryAdapter.carItemClickListener = { repository ->
+            // Lide com o clique em um item do repositório aqui
+        }
+
+        // Configurar o clique no botão de compartilhamento
+        repositoryAdapter.btnShareClickListener = { repository ->
+            // Lide com o clique no botão de compartilhamento aqui
+        }
+
+        // Configure o RecyclerView com o adaptador
+        binding.rvListaRepositories.adapter = repositoryAdapter
+    }
+
+
+    // Método responsável por compartilhar o link do repositório selecionado
+    private fun shareRepositoryLink(urlRepository: String) {
         val sendIntent: Intent = Intent().apply {
             action = Intent.ACTION_SEND
             putExtra(Intent.EXTRA_TEXT, urlRepository)
@@ -84,17 +129,13 @@ class MainActivity : AppCompatActivity() {
         startActivity(shareIntent)
     }
 
-    // Metodo responsavel por abrir o browser com o link informado do repositorio
-
-    // @Todo 12 - Colocar esse metodo no click item do adapter
-    fun openBrowser(urlRepository: String) {
+    // Método responsável por abrir o navegador com o link do repositório
+    private fun openBrowser(urlRepository: String) {
         startActivity(
             Intent(
                 Intent.ACTION_VIEW,
                 Uri.parse(urlRepository)
             )
         )
-
     }
-
 }
