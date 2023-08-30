@@ -1,3 +1,5 @@
+import android.content.Context
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -43,10 +45,26 @@ class RepositoryAdapter(private val repositories: List<Repository>) :
 
             // Exemplo de click no botão de compartilhamento
             shareButton.setOnClickListener {
-                btnShareClickListener?.invoke(repository)
-
+                // Lide com o clique no botão de compartilhamento aqui
+                val repositoryUrl = repository.htmlUrl // Certifique-se de que 'url' é o nome correto da propriedade
+                if (repositoryUrl.isNotEmpty()) {
+                    shareRepositoryLink(itemView.context, repositoryUrl)
+                }
             }
         }
 
+        private fun shareRepositoryLink(context: Context, urlRepository: String) {
+            val sendIntent: Intent = Intent().apply {
+                action = Intent.ACTION_SEND
+                putExtra(Intent.EXTRA_TEXT, urlRepository)
+                type = "text/plain"
+            }
+
+            val shareIntent = Intent.createChooser(sendIntent, null)
+            context.startActivity(shareIntent)
+        }
     }
+
+
+
 }
