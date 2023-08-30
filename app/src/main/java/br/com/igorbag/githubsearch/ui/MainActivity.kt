@@ -117,17 +117,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    // Método responsável por compartilhar o link do repositório selecionado
-    private fun shareRepositoryLink(urlRepository: String) {
-        val sendIntent: Intent = Intent().apply {
-            action = Intent.ACTION_SEND
-            putExtra(Intent.EXTRA_TEXT, urlRepository)
-            type = "text/plain"
-        }
 
-        val shareIntent = Intent.createChooser(sendIntent, null)
-        startActivity(shareIntent)
-    }
 
     // Método responsável por abrir o navegador com o link do repositório
     private fun openBrowser(urlRepository: String) {
